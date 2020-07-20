@@ -19,3 +19,10 @@ DST:
 
 E2E:
 [2005.05298] SOLOIST: Few-shot Task-Oriented Dialog with A Single Pre-trained Auto-regressive Model
+
+
+Progress:
+
+E2E:
+
+July 20: Reproduce SOLOIST on multiwoz2.2 ( preprocessing )
