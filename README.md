@@ -26,3 +26,16 @@ Progress:
 E2E:
 
 July 20: Reproduce SOLOIST on multiwoz2.2 ( preprocessing )
+
+{
+ "Dialogue History": "USER: ... SYSTEM: ... USER: ..."
+ "Belief State": [
+    "Domain-Slot": "Value",
+    "hotel-day": "4",
+    ,,,
+ ]
+ "DB State": [
+  ,,,
+ ]
+ "Response": "Delex response"
+}
