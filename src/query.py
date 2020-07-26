@@ -26,17 +26,21 @@ class dataBase:
 		with open(os.path.join(dir, "train_db.json")) as f_tra:
 			self.db["train"] = json.load(f_tra)
 
-	def query(b, pre_b):
+	def query(self, b, pre_b):
 		results = []
 
 		for dom_key, dom_values in b.items():
 			if dom_values != pre_b[dom_key]:
 				dom_results = self.db[dom_key]
 
-				for state_key, state_values in b[dom_key]:
-					if state_key in self.db[dom_key].keys() and "dontcare" not in state_values:
-						dom_results = [x if x[state_key] in state_values for x in dom_results]
-
+				for state_key, state_values in b[dom_key].items():
+					if state_key in self.db[dom_key][0].keys() and "dontcare" not in state_values:
+						#dom_results = [x if x[state_key] in state_values for x in dom_results]
+						tmp_re = []
+						for x in dom_results:
+							if x[state_key] in state_values:    tmp_re.append(x)
+						dom_results = tmp_re
+						
 				results += dom_results
 
 		return results

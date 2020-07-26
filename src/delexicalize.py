@@ -14,6 +14,7 @@ def delexicalize(system_act_fname, dialogues):
 		if dia_id != pre_id:
 			turn = 1
 
+		print(dia_id)
 		for domain_type, domain_value in sys_act[dia_id][str(turn)].items():
 			for token_info in domain_value:
 				if token_info[0] != "none":
@@ -27,7 +28,7 @@ def delexicalize(system_act_fname, dialogues):
 
 					if token_info[0] == "Type":
 						if token_value == "guesthouse":
-							token_value_test = "guest house":
+							token_value_test = "guest house"
 						elif token_value == "guesthouses":
 							token_value_test = "guest houses"
 
