@@ -19,11 +19,14 @@ for file in os.listdir(args.dialogues):
 	with open(os.path.join(args.dialogues, file), encoding='utf8') as F:
 		dialogues = json.loads(F.read())
 	
+	dia_idx = {}
+
 	for dialogue in dialogues:
 		
 		d = {}
 		history = ""
 		d_id = dialogue["dialogue_id"]
+		dia_idx[d_id] = len(dia_idx)
 
 		for turn in dialogue['turns']:
 			history += str(turn['speaker']) + ": " + str(turn['utterance']) + " "
@@ -59,9 +62,7 @@ for file in os.listdir(args.dialogues):
 
 	if args.gen_new_data:
 		for d in data:
-			for i in range(len(dialogues)):
-				if dialogues[i]['dialogue_id'] == d['dialogue_id']:
-					dialogues[i]['turns'][int(d['turn_id'])]['delexical'] = d['Response']
+			dialogues[int(dia_idx[d['dialogue_id']])]['turns'][int(d['turn_id'])]['delexical'] = d['Response']
 
 		print(dialogues[0])
 
