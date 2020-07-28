@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--dialogues', type = str, default = "./")
 parser.add_argument('-s', '--system_act', type = str, default = "./")
 parser.add_argument('-db', '--db_path', type = str, default = "./")
+parser.add_argument('--gen_new_data', action = "store_true")
 args = parser.parse_args()
 
 data = []
@@ -32,6 +33,7 @@ for file in os.listdir(args.dialogues):
 					search_result = db.query(d['Belief State'], data[-1]['Belief State'])
 					d['DB State'] = str(len(search_result)) + " match"
 				d["Response"] = turn['utterance']
+				d['turn_id'] = turn['turn_id']
 				data.append(d)
 				continue
 
@@ -42,8 +44,6 @@ for file in os.listdir(args.dialogues):
 			belief_state = {}
 
 			for frame in turn['frames']:
-				# if not frame['state']['slot_values']:
-				# 	break
 				b_state = {}
 				for slot in frame['state']['slot_values'].keys():
 					slot_value = frame['state']['slot_values'][slot]
@@ -54,5 +54,18 @@ for file in os.listdir(args.dialogues):
 			d["Belief State"] = belief_state
 
 	print(data[:-1])
-	print(delexicalize(args.system_act, data)[:-1])
+	data = delexicalize(args.system_act, data) 
+	print(data[:-1])
+
+	if args.gen_new_data:
+		for d in data:
+			for i in range(len(dialogues)):
+				if dialogues[i]['dialogue_id'] == d['dialogue_id']:
+					dialogues[i]['turns'][int(d['turn_id'])]['delexical'] = d['Response']
+
+		print(dialogues[0])
+
+		with open(os.path.join(args.dialogues, "new_" + file), 'w', encoding='utf8') as F:
+			dialogues = F.write(json.dumps(dialogues))
+
 	break
