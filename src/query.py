@@ -30,7 +30,7 @@ class dataBase:
 		results = []
 
 		for dom_key, dom_values in b.items():
-			if dom_values != pre_b[dom_key]:
+			if dom_key not in pre_b.keys() or dom_values != pre_b[dom_key]:
 				dom_results = self.db[dom_key]
 
 				for state_key, state_values in b[dom_key].items():
