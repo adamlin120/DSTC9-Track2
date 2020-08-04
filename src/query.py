@@ -20,9 +20,6 @@ class dataBase:
 		with open(os.path.join(dir, "restaurant_db.json")) as f_res:
 			self.db["restaurant"] = json.load(f_res)
 
-		with open(os.path.join(dir, "taxi_db.json")) as f_tax:
-			self.db["taxi"] = json.load(f_tax)
-
 		with open(os.path.join(dir, "train_db.json")) as f_tra:
 			self.db["train"] = json.load(f_tra)
 
@@ -30,7 +27,7 @@ class dataBase:
 		results = []
 
 		for dom_key, dom_values in b.items():
-			if dom_key not in pre_b.keys() or dom_values != pre_b[dom_key]:
+			if dom_key in self.db.keys() and (dom_key not in pre_b.keys() or dom_values != pre_b[dom_key]):
 				dom_results = self.db[dom_key]
 
 				for state_key, state_values in b[dom_key].items():
