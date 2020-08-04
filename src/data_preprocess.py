@@ -10,10 +10,14 @@ parser.add_argument('-d', '--dialogues', type = str, default = "./")
 parser.add_argument('-s', '--system_act', type = str, default = "./")
 parser.add_argument('-db', '--db_path', type = str, default = "./")
 parser.add_argument('--gen_new_data', action = "store_true")
+parser.add_argument("-t", "--delexicalized_slot_path", type = str, default = "delexicalized_slot_name.json")
+parser.add_argument("-o", "--output_path", type = str, required = True)
 args = parser.parse_args()
 
 data = []
 db = dataBase(args.db_path)
+slot_names = set()
+dia_offset = 0
 
 for file in os.listdir(args.dialogues):
 	with open(os.path.join(args.dialogues, file), encoding='utf8') as F:
@@ -57,16 +61,26 @@ for file in os.listdir(args.dialogues):
 			d["Belief State"] = belief_state
 
 	print(data[:-1])
-	data = delexicalize(args.system_act, data) 
+	data, dia_slot_names = delexicalize(args.system_act, data)
+	slot_names |= dia_slot_names
 	print(data[:-1])
 
 	if args.gen_new_data:
-		for d in data:
+		print(file)
+
+		for d in data[dia_offset:]:
+			print(d)
 			dialogues[int(dia_idx[d['dialogue_id']])]['turns'][int(d['turn_id'])]['delexical'] = d['Response']
 
 		print(dialogues[0])
 
 		with open(os.path.join(args.dialogues, "new_" + file), 'w', encoding='utf8') as F:
-			dialogues = F.write(json.dumps(dialogues))
+			json.dump(dialogues, F, indent = 2)
 
-	break
+		dia_offset = len(data)
+
+with open(args.output_path, 'w') as f_out:
+	json.dump(data, f_out, indent = 2)
+
+with open(args.delexicalized_slot_path, 'w') as f_slot:
+	json.dump(list(slot_names), f_slot, indent = 2)
