@@ -39,6 +39,9 @@ for file in os.listdir(args.dialogues):
 				if len(data) > 0:
 					search_result = db.query(d['Belief State'], data[-1]['Belief State'])
 					d['DB State'] = str(len(search_result)) + " match"
+				else:
+					search_result = db.query(d['Belief State'], {})
+					d['DB State'] = str(len(search_result)) + " match"
 				d["Response"] = turn['utterance']
 				d['turn_id'] = turn['turn_id']
 				data.append(d)
