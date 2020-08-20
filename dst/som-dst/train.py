@@ -8,13 +8,12 @@ from model import SomDST
 from pytorch_transformers import BertTokenizer, AdamW, WarmupLinearSchedule, BertConfig
 from utils.data_utils import prepare_dataset, MultiWozDataset
 from utils.data_utils import make_slot_meta, domain2id, OP_SET, make_turn_label, postprocessing
-from utils.eval_utils import compute_prf, compute_acc, per_domain_join_accuracy
 from utils.ckpt_utils import download_ckpt, convert_ckpt_compatible
 from evaluation import model_evaluation
 
 import torch
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import DataLoader, RandomSampler
 import numpy as np
 import argparse
 import random
