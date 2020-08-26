@@ -7,6 +7,8 @@ import warnings
 import numpy as np
 import torch
 
+from preprocess_multiwoz import DATA_DIR
+
 # DEFINE special tokens
 SOS_token = 0
 EOS_token = 1
@@ -64,7 +66,7 @@ class MultiWozDataset(object):
         output_index2word_filepath = os.path.join(self.data_dir, output_index2word_name)
 
         self.dialogues = json.load(open(file_path, 'rt'))
-        self.actions = json.load(open('resources/multi-woz/dialogue_acts.json', 'r'))
+        self.actions = json.load(open(DATA_DIR / 'system_acts.json', 'r'))
 
         self.input_word2index = json.load(open(input_word2index_filepath, 'rt'))
         self.output_word2index = json.load(open(output_word2index_filepath, 'rt'))
@@ -105,8 +107,7 @@ class MultiWozDataset(object):
                 for idx, (usr, sys, bs, db, bstate, sys_act) in enumerate(
                         zip(val_file['usr'], val_file['sys'], val_file['bs'], val_file['db'], val_file['bstate'],
                             val_file['sys_act'])):
-                    tensor = [self.input_word2index[word] for word in usr.strip(' ').split(' ')] + [
-                        EOS_token]
+                    tensor = [self.input_word2index[word] for word in usr.strip(' ').split(' ')] + [EOS_token]
                     input_tensor.append(torch.LongTensor(tensor))  # .view(-1, 1))
 
                     tensor = [self.output_word2index[word] for word in sys.strip(' ').split(' ')] + [EOS_token]

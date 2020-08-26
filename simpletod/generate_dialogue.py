@@ -11,6 +11,8 @@ from utils.args_parser import ArgsParser
 from utils.multiwoz import dbPointer
 from utils.simpletod import *
 
+from preprocess_multiwoz import DATA_DIR
+
 opt = ArgsParser().parse()
 opt.multiwoz_version = '2.1'
 opt.use_action = True
@@ -31,7 +33,7 @@ EVAL_SPLIT = opt.split_set
 
 decoding = opt.decoding
 
-multiwoz_data = json.load(open('resources/multi-woz/lex.json', 'r'))
+multiwoz_data = json.load(open(DATA_DIR / 'lex.json', 'r'))
 
 # provide model name and checkpoint directory
 # exp_name = 'gpt2'

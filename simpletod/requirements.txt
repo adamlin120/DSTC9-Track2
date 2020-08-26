@@ -1,9 +1,10 @@
 torch>=1.6.0
+pytorch_lightning
 transformers
 spicy
 boto3
 ipdb
 tqdm
 tensorboardX
+tensorboard
 nltk
-simplejson

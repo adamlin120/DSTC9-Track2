@@ -1,30 +1,33 @@
+import re
 import json
 import logging
-import os
-import re
-from argparse import ArgumentParser, Namespace
-from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, Set, List, Tuple, Union
+from itertools import chain
 from operator import itemgetter
+from collections import Counter, defaultdict
+from argparse import ArgumentParser, Namespace
+from typing import Dict, Set, List, Tuple, Union
 
+import ipdb
 import numpy as np
 from tqdm import tqdm
 
-from utils.multiwoz.data import load_multiwoz
 from utils.multiwoz.dbPointer import one_hot_vector, query_result
-from utils.multiwoz.delexicalize import delexicalize, prepare_slot_values_independent
 from utils.multiwoz.nlp import normalize, normalize_lexical, normalize_beliefstate
+from utils.multiwoz.delexicalize import delexicalize, prepare_slot_values_independent
 
-np.set_printoptions(precision=3)
 
-np.random.seed(2)
+logging.basicConfig(level=logging.INFO)
 
-# GLOBAL VARIABLES
-DICT_SIZE = 1000000
 MAX_LENGTH = 600
 
-DATA_DIR = Path('./resources/')
+DATA_DIR = Path('./MultiWOZ_2.1/')
+
+
+def load_dialogs_dialogs_action() -> Tuple[Dict, Dict]:
+    data = json.loads((DATA_DIR / 'data.json').read_text())
+    dial_acts = json.loads((DATA_DIR / 'system_acts.json').read_text())
+    return data, dial_acts
 
 
 def fix_delexicalization_with_dialog_actions(
@@ -200,7 +203,8 @@ def process_dialog(
 ) -> Dict[str, Union[List[str], List[str], List[List], List[List], List[List]]]:
     """Cleaning procedure for all kinds of errors in text and annotation."""
     num_turns = len(dialog['log'])
-    assert num_turns % 2, f'Expect # of turns to be odd, but got {num_turns=}'
+    assert num_turns and num_turns % 2 == 0, \
+        f'Expect # of turns to be even, but got {num_turns=}'
 
     processed_dialog = {
         'goal': dialog['goal'],
@@ -221,11 +225,11 @@ def process_dialog(
             turn['belief_state'] = get_belief(turn['metadata'])
             processed_dialog['sys_log'].append(turn)
 
-    user_logs = list(map(itemgetter('text', processed_dialog['usr_log'])))
-    system_logs = list(map(itemgetter('text', processed_dialog['sys_log'])))
-    db_pointers = list(map(itemgetter('db_pointer', processed_dialog['usr_log'])))
-    belief_summaries = list(map(itemgetter('belief_summary', processed_dialog['sys_log'])))
-    belief_states = list(map(itemgetter('belief_state', processed_dialog['sys_log'])))
+    user_logs = list(map(itemgetter('text'), processed_dialog['usr_log']))
+    system_logs = list(map(itemgetter('text'), processed_dialog['sys_log']))
+    db_pointers = list(map(itemgetter('db_pointer'), processed_dialog['usr_log']))
+    belief_summaries = list(map(itemgetter('belief_summary'), processed_dialog['sys_log']))
+    belief_states = list(map(itemgetter('belief_state'), processed_dialog['sys_log']))
     assert len(user_logs) == len(system_logs) == len(db_pointers) == \
            len(belief_summaries) == len(belief_states)
     return {
@@ -237,13 +241,10 @@ def process_dialog(
     }
 
 
-def createDict(word_freqs):
-    words = [k for k in word_freqs.keys()]
-    freqs = [v for v in word_freqs.values()]
-
-    sorted_idx = np.argsort(freqs)
-    sorted_words = [words[ii] for ii in sorted_idx[::-1]]
-
+def create_dict(
+        word_freqs: Counter,
+        vocab_size: int = 1_000_000,
+) -> Tuple[Dict[str, int], Dict[int, str]]:
     # Extra vocabulary symbols
     _GO = '_GO'
     EOS = '_EOS'
@@ -258,19 +259,11 @@ def createDict(word_freqs):
     SEP6 = '_SEP6'
     SEP7 = '_SEP7'
     extra_tokens = [_GO, EOS, UNK, PAD, SEP0, SEP1, SEP2, SEP3, SEP4, SEP5, SEP6, SEP7]
-    # extra_tokens = [_GO, EOS, UNK, PAD]
 
-    worddict = OrderedDict()
-    for ii, ww in enumerate(extra_tokens):
-        worddict[ww] = ii
-    for ii, ww in enumerate(sorted_words):
-        worddict[ww] = ii  # + len(extra_tokens)
-
-    new_worddict = worddict.copy()
-    for key, idx in worddict.items():
-        if idx >= DICT_SIZE:
-            del new_worddict[key]
-    return new_worddict
+    token_sorted_by_descending_freq = list(map(itemgetter(0), word_freqs.most_common(n=vocab_size)))
+    token2id = {token: i for i, token in enumerate(extra_tokens + token_sorted_by_descending_freq)}
+    id2token = {i: token for token, i in token2id.items()}
+    return token2id, id2token
 
 
 def create_delexicalized_data() -> Dict[str, Dict]:
@@ -281,16 +274,17 @@ def create_delexicalized_data() -> Dict[str, Dict]:
     3) addition of database pointer
     4) saves the delexicalized data
     """
-    data, dialog_acts = load_multiwoz()
+    logging.info('Creating Delexicalized Data')
+    dialogs, dialog_acts = load_dialogs_dialogs_action()
 
     # create dictionary of delexicalized values that then we will search against, order matters here!
     slot_values = prepare_slot_values_independent()
+
     delex_data = {}
 
-    for dialogue_id in tqdm(data):
-        dialogue = data[dialogue_id]
-
-        for idx, turn in enumerate(dialogue['log']):
+    for dialog_id in tqdm(dialogs):
+        dialog = dialogs[dialog_id]
+        for idx, turn in enumerate(dialog['log']):
             # normalization, split and delexicalization of the sentence
             utterance = normalize(turn['text'])
 
@@ -305,21 +299,20 @@ def create_delexicalized_data() -> Dict[str, Dict]:
             utterance = re.sub(digitpat, '[value_count]', utterance)
 
             # delexicalized sentence added to the dialogue
-            dialogue['log'][idx]['text'] = utterance
+            dialog['log'][idx]['text'] = utterance
 
             if idx % 2 == 1:  # if it's a system turn
                 pointer_vector = add_db_pointer(turn)
-                pointer_vector = add_booking_pointer(dialogue['goal'],
+                pointer_vector = add_booking_pointer(dialog['goal'],
                                                      turn['metadata'],
                                                      pointer_vector)
 
-                dialogue['log'][idx - 1]['db_pointer'] = pointer_vector.tolist()
+                dialog['log'][idx - 1]['db_pointer'] = pointer_vector.tolist()
 
-            dialogue = fix_delexicalization_with_dialog_actions(dialogue_id, dialogue, dialog_acts, idx, idx + 1)
+            dialog = fix_delexicalization_with_dialog_actions(dialog_id, dialog, dialog_acts, idx, idx + 1)
+        delex_data[dialog_id] = dialog
 
-        delex_data[dialogue_id] = dialogue
-
-    delex_path = DATA_DIR / 'multi-woz/delex.json'
+    delex_path = DATA_DIR / 'delex.json'
     delex_path.write_text(json.dumps(delex_data))
 
     return delex_data
@@ -332,31 +325,34 @@ def create_lexical_data() -> Dict[str, Dict]:
     2) addition of database pointer
     3) saves the lexicalized data
     """
-    data, _ = load_multiwoz()
+    logging.info('Creating Lexical Data')
+    data, _ = load_dialogs_dialogs_action()
 
     lex_data = {}
-    for dialogue_name in tqdm(data):
+    for dialogue_name in tqdm(data, desc='Multiwoz Lexical'):
         dialogue = data[dialogue_name]
         for idx, turn in enumerate(dialogue['log']):
             normalized_utterance = normalize_lexical(turn['text'])
             dialogue['log'][idx]['text'] = normalized_utterance
             if idx % 2 == 1:  # system turn
                 pointer_vector = add_db_pointer(turn)
-                pointer_vector = add_booking_pointer(dialogue, turn, pointer_vector)
+                pointer_vector = add_booking_pointer(dialogue['goal'],
+                                                     turn['metadata'],
+                                                     pointer_vector)
                 dialogue['log'][idx - 1]['db_pointer'] = pointer_vector.tolist()
 
         lex_data[dialogue_name] = dialogue
 
-    lex_data_path = DATA_DIR / 'multi-woz/lex.json'
+    lex_data_path = DATA_DIR / 'lex.json'
     lex_data_path.write_text(json.dumps(lex_data))
 
     return lex_data
 
 
 def get_turn_dialog_action(
-        dialog_action: Dict[str, Dict[str, List[List[str, str]]]],
+        dialog_action: Dict[str, Dict[str, List[List[str]]]],
         turn_id: str
-) -> Tuple[Union[str, Dict[str, List[List[str, str]]], List],
+) -> Tuple[Union[str, Dict[str, List[List[str]]], List],
            List[Tuple[str, str, str]]]:
     if turn_id in dialog_action:
         turn_action = dialog_action[turn_id]
@@ -392,11 +388,13 @@ def divide_data(
 ) -> Tuple[Counter, Counter, Counter]:
     """Given test and validation sets, divide
     the data for three different sets"""
-    multiwoz_dir = DATA_DIR / 'multi-woz/'
+    logging.info('Divide dialogues for separate bits - usr, sys, db, bs')
+
+    multiwoz_dir = DATA_DIR
     train_list_path = multiwoz_dir / 'trainListFile'
-    val_list_path = multiwoz_dir / 'valListFile.json'
-    test_list_path = multiwoz_dir / 'testListFile.json'
-    dialog_actions_path = multiwoz_dir / 'dialogue_acts.json'
+    val_list_path = multiwoz_dir / 'valListFile.txt'
+    test_list_path = multiwoz_dir / 'testListFile.txt'
+    dialog_actions_path = multiwoz_dir / 'system_acts.json'
 
     train_list_file: List[str] = []
     val_list_file: Set[str] = set(val_list_path.read_text().splitlines())
@@ -412,11 +410,10 @@ def divide_data(
     user_dict = Counter()
     system_dict = Counter()
     dialog_history_dict = Counter()
-    belief_dict = Counter()
 
     for dialog_id, dialog in tqdm(dialogs.items()):
 
-        dial = process_dialog(dialog)
+        dial = process_dialog(dialog, MAX_LENGTH)
 
         dialogue = {
             **dial,
@@ -440,30 +437,23 @@ def divide_data(
             train_list_file.append(dialog_id)
             train_dials[dialog_id] = dialogue
 
-        user_dict += Counter((line.strip().split(' ')for line in dial['usr']))
-        system_dict += Counter((line.strip().split(' ') for line in dial['sys']))
+        user_dict += Counter(word for line in dial['usr'] for word in line.strip().split(' '))
+        system_dict += Counter(word for line in dial['sys'] for word in line.strip().split(' '))
         dialog_history_dict = user_dict + system_dict
 
-        act_words = [word for dial_act in dialogue['sys_act'] for word in dial_act]
+        act_words = [word for dial_acts in dialogue['sys_act'] for act in dial_acts for word in act]
         action_dict = Counter(act_words)
         system_dict += action_dict
         dialog_history_dict += action_dict
 
-        belief_words = []
-        for dial_bstate in dialogue['bstate']:
-            for domain, slot, value in dial_bstate:
-                belief_words.extend([domain, slot])
-                belief_words.extend(normalize_beliefstate(value).strip().split(' '))
-        for w in belief_words:
-            if w not in system_dict:
-                system_dict[w] = 0
-            system_dict[w] += 1
-            if w not in dialog_history_dict:
-                dialog_history_dict[w] = 0
-            dialog_history_dict[w] += 1
-            if w not in belief_dict:
-                belief_dict[w] = 0
-            belief_dict[w] += 1
+        belief_words = chain.from_iterable([
+            [domain, slot] + [word for word in normalize_beliefstate(value).strip().split(' ')]
+            for dial_belief in dialogue['bstate']
+            for domain, slot, value in dial_belief
+        ])
+        belief_dict = Counter(belief_words)
+        system_dict += belief_dict
+        dialog_history_dict += belief_dict
 
     train_list_path.write_text('\n'.join(train_list_file))
 
@@ -478,52 +468,32 @@ def divide_data(
     return user_dict, system_dict, dialog_history_dict
 
 
-def build_dictionaries(word_freqs_usr, word_freqs_sys, word_freqs_histoy, is_lexicalized=False):
+def build_dictionaries(
+        word_freqs_usr: Counter,
+        word_freqs_sys: Counter,
+        word_freqs_histoy: Counter,
+        is_lexicalized: bool = False
+):
     """Build dictionaries for both user and system sides.
     You can specify the size of the dictionary through DICT_SIZE variable."""
-    dicts = []
-    worddict_usr = createDict(word_freqs_usr)
-    dicts.append(worddict_usr)
-    worddict_sys = createDict(word_freqs_sys)
-    dicts.append(worddict_sys)
-    worddict_history = createDict(word_freqs_histoy)
-    dicts.append(worddict_history)
+    logging.info('Building dictionaries')
+    user_token2id, user_id2token = create_dict(word_freqs_usr)
+    sys_token2id, sys_id2token = create_dict(word_freqs_sys)
+    history_token2id, history_id2token = create_dict(word_freqs_histoy)
 
-    # reverse dictionaries
-    idx2words = []
-    for dictionary in dicts:
-        dic = {}
-        for k, v in dictionary.items():
-            dic[v] = k
-        idx2words.append(dic)
+    input_index2word_filename = DATA_DIR / f"input_lang.index2word{'_lexicalized' if is_lexicalized else ''}.json"
+    input_word2index_filename = DATA_DIR / f"input_lang.word2index{'_lexicalized' if is_lexicalized else ''}.json"
+    output_index2word_filename = DATA_DIR / f"output_lang.index2word{'_lexicalized' if is_lexicalized else ''}.json"
+    output_word2index_filename = DATA_DIR / f"output_lang.word2index{'_lexicalized' if is_lexicalized else ''}.json"
+    history_index2word_filename = DATA_DIR / f"history_lang.index2word{'_lexicalized' if is_lexicalized else ''}.json"
+    history_word2index_filename = DATA_DIR / f"history_lang.word2index{'_lexicalized' if is_lexicalized else ''}.json"
 
-    if is_lexicalized:
-        input_index2word_filename = os.path.join(DATA_DIR, 'input_lang.index2word_lexicalized.json')
-        input_word2index_filename = os.path.join(DATA_DIR, 'input_lang.word2index_lexicalized.json')
-        output_index2word_filename = os.path.join(DATA_DIR, 'output_lang.index2word_lexicalized.json')
-        output_word2index_filename = os.path.join(DATA_DIR, 'output_lang.word2index_lexicalized.json')
-        history_index2word_filename = os.path.join(DATA_DIR, 'history_lang.index2word_lexicalized.json')
-        history_word2index_filename = os.path.join(DATA_DIR, 'history_lang.word2index_lexicalized.json')
-    else:
-        input_index2word_filename = os.path.join(DATA_DIR, 'input_lang.index2word.json')
-        input_word2index_filename = os.path.join(DATA_DIR, 'input_lang.word2index.json')
-        output_index2word_filename = os.path.join(DATA_DIR, 'output_lang.index2word.json')
-        output_word2index_filename = os.path.join(DATA_DIR, 'output_lang.word2index.json')
-        history_index2word_filename = os.path.join(DATA_DIR, 'history_lang.index2word.json')
-        history_word2index_filename = os.path.join(DATA_DIR, 'history_lang.word2index.json')
-
-    with open(input_index2word_filename, 'w') as f:
-        json.dump(idx2words[0], f, indent=2)
-    with open(input_word2index_filename, 'w') as f:
-        json.dump(dicts[0], f, indent=2)
-    with open(output_index2word_filename, 'w') as f:
-        json.dump(idx2words[1], f, indent=2)
-    with open(output_word2index_filename, 'w') as f:
-        json.dump(dicts[1], f, indent=2)
-    with open(history_index2word_filename, 'w') as f:
-        json.dump(idx2words[2], f, indent=2)
-    with open(history_word2index_filename, 'w') as f:
-        json.dump(dicts[2], f, indent=2)
+    input_index2word_filename.write_text(json.dumps(user_id2token, indent=2))
+    input_word2index_filename.write_text(json.dumps(user_token2id, indent=2))
+    output_index2word_filename.write_text(json.dumps(sys_id2token, indent=2))
+    output_word2index_filename.write_text(json.dumps(sys_token2id, indent=2))
+    history_index2word_filename.write_text(json.dumps(history_id2token, indent=2))
+    history_word2index_filename.write_text(json.dumps(history_token2id, indent=2))
 
 
 def parse_args() -> Namespace:
@@ -538,20 +508,16 @@ def main():
     assert args.mode in {'delex', 'lexixal'}, ValueError(f'Unknown mode: {args.mode}')
     logging.info(f'MultiWoz Create {args.mode} dialogues.')
 
-    is_lexicalize = args.mode == 'lexixal'
-    if is_lexicalize:
-        data_path = DATA_DIR / 'multi-woz/lex.json'
-        data = json.loads(data_path.read_text()) if data_path.is_file() else create_lexical_data()
+    is_lexicalized = args.mode == 'lexixal'
+    data_path = DATA_DIR / f"{'lex' if is_lexicalized else 'delex'}.json"
+    if data_path.is_file():
+        data = json.loads(data_path.read_text())
     else:
-        data_path = DATA_DIR / 'multi-woz/delex.json'
-        data = json.loads(data_path.read_text()) if data_path.is_file() else create_delexicalized_data()
-
-    logging.info('Divide dialogues for separate bits - usr, sys, db, bs')
-    word_freqs_usr, word_freqs_sys, word_freqs_history = divide_data(data, is_lexicalize)
-
-    logging.info('Building dictionaries')
-    build_dictionaries(word_freqs_usr, word_freqs_sys, word_freqs_history, is_lexicalize)
+        data = create_lexical_data() if is_lexicalized else create_delexicalized_data()
+    user_dict, system_dict, dialog_history_dict = divide_data(data, is_lexicalized)
+    build_dictionaries(user_dict, system_dict, dialog_history_dict, is_lexicalized)
 
 
 if __name__ == "__main__":
-    main()
+    with ipdb.launch_ipdb_on_exception():
+        main()

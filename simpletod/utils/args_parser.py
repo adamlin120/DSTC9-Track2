@@ -1,11 +1,10 @@
-import argparse
+from argparse import ArgumentParser
 
 
 class ArgsParser(object):
     def __init__(self):
-        parser = argparse.ArgumentParser()
-
-        parser.add_argument('--data_dir', default='./resources')
+        parser = ArgumentParser()
+        parser.add_argument('--data_dir', default='./MultiWOZ_2.1')
         parser.add_argument('--log_dir', default='./logs')
         parser.add_argument('--dataset', default='multiwoz')
         parser.add_argument('--save_dir', default='./checkpoints')
@@ -69,6 +68,4 @@ class ArgsParser(object):
         self.parser = parser
 
     def parse(self):
-        args = self.parser.parse_args()
-
-        return args
+        return self.parser.parse_args()

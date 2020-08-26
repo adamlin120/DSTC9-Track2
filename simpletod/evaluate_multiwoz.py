@@ -8,10 +8,11 @@ from collections import Counter
 
 from nltk.util import ngrams
 
-# import utils.delexicalize as delex
 from utils.multiwoz import delexicalize as delex
 from utils.multiwoz.nlp import BLEUScorer
 from utils.multiwoz.nlp import normalize
+
+from preprocess_multiwoz import DATA_DIR
 
 
 def remove_model_mismatch_and_db_data(dial_name, target_beliefs, pred_beliefs, domain, t):
@@ -254,7 +255,7 @@ class MultiWozEvaluator(BaseEvaluator):
     def __init__(self, data_name):
         self.data_name = data_name
         self.slot_dict = delex.prepare_slot_values_independent()
-        self.delex_dialogues = json.load(open('resources/multi-woz-2.1/delex.json', 'r'))
+        self.delex_dialogues = json.load(open(DATA_DIR / 'delex.json', 'r'))
         self.db = MultiWozDB()
         self.labels = list()
         self.hyps = list()

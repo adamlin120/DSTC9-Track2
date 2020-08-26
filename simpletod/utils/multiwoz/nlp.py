@@ -9,7 +9,7 @@ from nltk.util import ngrams
 timepat = re.compile("\d{1,2}[:]\d{1,2}")
 pricepat = re.compile("\d{1,3}[.]\d{1,2}")
 
-mappings: List[List[str, str]] = [
+mappings: List[List[str]] = [
     line.replace('\n', '').split('\t')
     for line in Path('utils/multiwoz/mapping.pair').read_text().splitlines()
 ]
