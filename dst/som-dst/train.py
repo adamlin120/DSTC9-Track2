@@ -57,11 +57,12 @@ def main(args):
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
 
-    ontology = json.load(open(args.ontology_data))
+    ontology = json.load(open(args.ontology_data, encoding = "utf-8"))
     slot_meta, ontology = make_slot_meta(ontology)
     op2id = OP_SET[args.op_code]
     print(op2id)
-    tokenizer = BertTokenizer(args.vocab_path, do_lower_case=True)
+    tokenizer = BertTokenizer(args.vocab_path)
+    #.from_pretrained("bert-base-chinese") 
 
     train_data_raw = prepare_dataset(data_path=args.train_data_path,
                                      tokenizer=tokenizer,
@@ -104,10 +105,11 @@ def main(args):
 
     model = SomDST(model_config, len(op2id), len(domain2id), op2id['update'], args.exclude_domain)
 
+
     if not os.path.exists(args.bert_ckpt_path):
         args.bert_ckpt_path = download_ckpt(args.bert_ckpt_path, args.bert_config_path, 'assets')
 
-    ckpt = torch.load(args.bert_ckpt_path, map_location='cpu')
+    ckpt = torch.load(args.bert_ckpt_path)
     model.encoder.bert.load_state_dict(ckpt)
 
     # re-initialize added special tokens ([SLOT], [NULL], [EOS])
@@ -135,7 +137,7 @@ def main(args):
                                          t_total=num_train_steps)
 
     if n_gpu > 1:
-        model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(model, device_ids = [0])
 
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data,
@@ -239,14 +241,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Required parameters
-    parser.add_argument("--data_root", default='data/mwz2.1', type=str)
-    parser.add_argument("--train_data", default='train_dials.json', type=str)
-    parser.add_argument("--dev_data", default='dev_dials.json', type=str)
-    parser.add_argument("--test_data", default='test_dials.json', type=str)
+    parser.add_argument("--data_root", default='../../crosswoz', type=str)
+    parser.add_argument("--train_data", default='train_dial.json', type=str)
+    parser.add_argument("--dev_data", default='val_dial.json', type=str)
+    parser.add_argument("--test_data", default='test_dial.json', type=str)
     parser.add_argument("--ontology_data", default='ontology.json', type=str)
-    parser.add_argument("--vocab_path", default='assets/vocab.txt', type=str)
-    parser.add_argument("--bert_config_path", default='assets/bert_config_base_uncased.json', type=str)
-    parser.add_argument("--bert_ckpt_path", default='assets/bert-base-uncased-pytorch_model.bin', type=str)
+    parser.add_argument("--vocab_path", default='assets/chinese_vocab.txt', type=str)
+    parser.add_argument("--bert_config_path", default='assets/bert-base-chinese.json', type=str)
+    parser.add_argument("--bert_ckpt_path", default='assets/bert-base-chinese-pytorch_model.bin', type=str)
     parser.add_argument("--save_dir", default='outputs', type=str)
 
     parser.add_argument("--random_seed", default=42, type=int)
@@ -270,7 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--shuffle_p", default=0.5, type=float)
 
     parser.add_argument("--n_history", default=1, type=int)
-    parser.add_argument("--max_seq_length", default=256, type=int)
+    parser.add_argument("--max_seq_length", default=275, type=int)
     parser.add_argument("--msg", default=None, type=str)
     parser.add_argument("--exclude_domain", default=False, action='store_true')
 

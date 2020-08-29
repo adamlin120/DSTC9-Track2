@@ -14,7 +14,7 @@ from copy import deepcopy
 from .fix_label import fix_general_label_error
 
 flatten = lambda x: [i for s in x for i in s]
-EXPERIMENT_DOMAINS = ["hotel", "train", "restaurant", "attraction", "taxi"]
+EXPERIMENT_DOMAINS = ["景点","地铁","出租","餐馆","酒店"]
 domain2id = {d: i for i, d in enumerate(EXPERIMENT_DOMAINS)}
 
 OP_SET = {
@@ -140,7 +140,7 @@ def make_slot_meta(ontology):
 
 def prepare_dataset(data_path, tokenizer, slot_meta,
                     n_history, max_seq_length, diag_level=False, op_code='4'):
-    dials = json.load(open(data_path))
+    dials = json.load(open(data_path, encoding = "utf-8"))
     data = []
     domain_counter = {}
     max_resp_len, max_value_len = 0, 0
@@ -173,7 +173,6 @@ def prepare_dataset(data_path, tokenizer, slot_meta,
                 is_last_turn = True
             else:
                 is_last_turn = False
-
             instance = TrainingInstance(dial_dict["dialogue_idx"], turn_domain,
                                         turn_id, turn_uttr, ' '.join(dialog_history[-n_history:]),
                                         last_dialog_state, op_labels,
@@ -330,6 +329,7 @@ class MultiWozDataset(Dataset):
         return self.data[idx]
 
     def collate_fn(self, batch):
+        #print([len(f.input_id) for f in batch])
         input_ids = torch.tensor([f.input_id for f in batch], dtype=torch.long)
         input_mask = torch.tensor([f.input_mask for f in batch], dtype=torch.long)
         segment_ids = torch.tensor([f.segment_id for f in batch], dtype=torch.long)

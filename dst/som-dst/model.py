@@ -15,7 +15,7 @@ class SomDST(BertPreTrainedModel):
         self.hidden_size = config.hidden_size
         self.encoder = Encoder(config, n_op, n_domain, update_id, exclude_domain)
         self.decoder = Decoder(config, self.encoder.bert.embeddings.word_embeddings.weight)
-        self.apply(self.init_weights)
+        self.init_weights()
 
     def forward(self, input_ids, token_type_ids,
                 state_positions, attention_mask,
@@ -112,6 +112,7 @@ class Decoder(nn.Module):
             slot_value = []
             for k in range(max_len):
                 w = self.dropout(w)
+                self.gru.flatten_parameters()
                 _, hidden = self.gru(w, hidden)  # 1,B,D
                 # B,T,D * B,D,1 => B,T
                 attn_e = torch.bmm(encoder_output, hidden.permute(1, 2, 0))  # B,T,1

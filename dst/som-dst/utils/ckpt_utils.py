@@ -7,6 +7,7 @@ from pytorch_transformers import BertForPreTraining, BertConfig
 BERT_PRETRAINED_MODEL_ARCHIVE_MAP = {
     'bert-base-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-uncased-pytorch_model.bin",
     'bert-large-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-pytorch_model.bin",
+    'bert-base-chinese':"https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-chinese-pytorch_model.bin"
 }
 
 
@@ -16,6 +17,8 @@ def download_ckpt(ckpt_path, config_path, target_path='assets'):
         key = 'bert-base-uncased'
     if 'large' in ckpt_path.lower():
         key = 'bert-large-uncased'
+    if 'chinese' in ckpt_path.lower():
+        key = 'bert-base-chinese'
     assert key in BERT_PRETRAINED_MODEL_ARCHIVE_MAP
 
     url_path = BERT_PRETRAINED_MODEL_ARCHIVE_MAP[key]
