@@ -137,7 +137,7 @@ def main(args):
                                          t_total=num_train_steps)
 
     if n_gpu > 1:
-        model = torch.nn.DataParallel(model, device_ids = [0])
+        model = torch.nn.DataParallel(model, device_ids=[0])
 
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data,
@@ -253,7 +253,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--random_seed", default=42, type=int)
     parser.add_argument("--num_workers", default=4, type=int)
-    parser.add_argument("--batch_size", default=32, type=int)
+    parser.add_argument("--batch_size", default=16, type=int)
     parser.add_argument("--enc_warmup", default=0.1, type=float)
     parser.add_argument("--dec_warmup", default=0.1, type=float)
     parser.add_argument("--enc_lr", default=4e-5, type=float)
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--shuffle_p", default=0.5, type=float)
 
     parser.add_argument("--n_history", default=1, type=int)
-    parser.add_argument("--max_seq_length", default=275, type=int)
+    parser.add_argument("--max_seq_length", default=400, type=int)
     parser.add_argument("--msg", default=None, type=str)
     parser.add_argument("--exclude_domain", default=False, action='store_true')
 
